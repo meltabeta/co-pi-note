@@ -16,80 +16,17 @@ self.addEventListener('activate', (event) => {
     event.waitUntil(clients.claim());
 });
 
-// Initialize IndexedDB
-const dbName = 'locationDB';
-const storeName = 'trackingPrefs';
-
-// Open IndexedDB
-function openDB() {
-    return new Promise((resolve, reject) => {
-        const request = indexedDB.open(dbName, 1);
-        
-        request.onerror = () => reject(request.error);
-        request.onsuccess = () => resolve(request.result);
-        
-        request.onupgradeneeded = (event) => {
-            const db = event.target.result;
-            if (!db.objectStoreNames.contains(storeName)) {
-                db.createObjectStore(storeName, { keyPath: 'email' });
-            }
-        };
-    });
-}
-
-// Handle background sync
+// Background sync for location updates
 self.addEventListener('sync', (event) => {
-    if (event.tag === 'updateLocation') {
-        event.waitUntil(syncLocations());
-    }
-});
-
-// Handle periodic background sync
-self.addEventListener('periodicsync', (event) => {
     if (event.tag === 'location-update') {
-        event.waitUntil(syncLocations());
+        event.waitUntil(updateLocationInBackground());
     }
 });
 
-async function syncLocations() {
-    const db = await openDB();
-    const transaction = db.transaction(storeName, 'readonly');
-    const store = transaction.objectStore(storeName);
-    const users = await store.getAll();
-
-    for (const user of users) {
-        if (!user.stopTracking) {
-            try {
-                const position = await getCurrentPosition();
-                await updateUserLocation(user.email, position);
-            } catch (error) {
-                console.error('Error updating location:', error);
-            }
-        }
-    }
-}
-
-function getCurrentPosition() {
-    return new Promise((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(resolve, reject, {
-            enableHighAccuracy: true,
-            timeout: 5000,
-            maximumAge: 0
-        });
-    });
-}
-
-// Handle messages from main thread
-self.addEventListener('message', async (event) => {
-    if (event.data.type === 'UPDATE_TRACKING_PREF') {
-        const db = await openDB();
-        const transaction = db.transaction(storeName, 'readwrite');
-        const store = transaction.objectStore(storeName);
-        
-        await store.put({
-            email: event.data.email,
-            stopTracking: event.data.stopTracking
-        });
+// Periodic background sync (if supported)
+self.addEventListener('periodicsync', (event) => {
+    if (event.tag === 'location-sync') {
+        event.waitUntil(updateLocationInBackground());
     }
 });
 
