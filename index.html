@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Note Taking App - Home</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Sans:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&family=Noto+Sans+Khmer:wght@100..900&family=Raleway:ital,wght@0,100..900;1,100..900&family=Roboto+Slab:wght@100..900&display=swap');
+
+        body {
+            font-family: 'Fira Sans', 'Noto Sans Khmer', 'Raleway', 'Roboto Slab', Arial, sans-serif;
+            background-color: #1a1a1a;
+            color: #ffffff;
+            margin: 0;
+            padding: 0;
+            line-height: 1.6;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: stretch; /* Changed from center */
+        }
+
+        .hero {
+            background-color: #2d2d2d;
+            padding: 40px 20px;
+            text-align: center;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+            width: 100%;
+            max-width: 100%; /* Changed from 800px */
+            margin: 0; /* Remove margin */
+            box-sizing: border-box;
+        }
+
+        .hero h1 {
+            font-size: 2.5em;
+            margin-bottom: 20px;
+            color: #1db954;
+            line-height: 1.2;
+        }
+
+        .hero p {
+            font-size: 1.2em;
+            max-width: 600px;
+            margin: 0 auto 30px;
+            color: #bbbbbb;
+            padding: 0 20px;
+        }
+
+        .button-container {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            align-items: center; /* Add this */
+            margin: 30px auto;
+            padding: 0 20px;
+            max-width: 400px; /* Add max-width */
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .button {
+            flex: 1;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            text-align: center;
+            min-width: 140px; /* Adjusted min-width */
+            max-width: 200px; /* Add this */
+            width: 100%; /* Add this */
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .button.primary {
+            background-color: #1db954;
+            color: white;
+        }
+
+        .button.secondary {
+            background-color: #333;
+            color: white;
+        }
+
+        .button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .button.primary:hover {
+            background-color: #1ed760;
+        }
+
+        .button.secondary:hover {
+            background-color: #444;
+        }
+
+        .features {
+            padding: 40px 20px;
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
+            box-sizing: border-box;
+        }
+
+        .features h2 {
+            text-align: center;
+            color: #1db954;
+            margin-bottom: 30px;
+            font-size: 2em;
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 30px;
+            padding: 20px;
+        }
+
+        .feature-item {
+            background-color: #2d2d2d;
+            padding: 30px;
+            border-radius: 12px;
+            text-align: center;
+            transition: transform 0.3s ease;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+        }
+
+        .feature-item:hover {
+            transform: translateY(-5px);
+        }
+
+        .feature-item i {
+            font-size: 2.5em;
+            color: #1db954;
+            margin-bottom: 15px;
+            display: block;
+        }
+
+        .feature-item h3 {
+            color: #ffffff;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+
+        .feature-item p {
+            color: #bbbbbb;
+            font-size: 1em;
+            line-height: 1.5;
+        }
+
+        @media (max-width: 600px) {
+            body {
+                justify-content: flex-start; /* Add this */
+                padding: 0; /* Remove padding */
+            }
+
+            .hero {
+                padding: 30px 15px;
+            }
+
+            .hero h1 {
+                font-size: 1.8em;
+                padding: 0;
+                margin-bottom: 15px;
+            }
+
+            .hero p {
+                font-size: 1em;
+                padding: 0 10px;
+                margin-bottom: 15px; /* Reduced margin */
+            }
+
+            .button-container {
+                flex-direction: column;
+                gap: 15px;
+                max-width: 280px; /* Reduced max-width for mobile */
+                margin: 20px auto;
+                padding: 0 15px; /* Reduced padding */
+            }
+
+            .button {
+                width: 100%;
+                min-width: unset;
+                max-width: 100%; /* Full width on mobile */
+                padding: 12px 20px;
+                font-size: 16px;
+            }
+
+            .features {
+                padding: 20px 15px;
+            }
+
+            .features h2 {
+                font-size: 1.6em;
+            }
+
+            .feature-grid {
+                grid-template-columns: 1fr;
+                gap: 15px;
+                padding: 10px;
+            }
+
+            .feature-item {
+                padding: 15px;
+                margin: 0 10px;
+            }
+
+            .feature-item i {
+                font-size: 2em;
+            }
+
+            .feature-item h3 {
+                font-size: 1.2em;
+            }
+
+            .feature-item p {
+                font-size: 0.95em;
+            }
+        }
+
+        @media (max-width: 400px) {
+            .hero h1 {
+                font-size: 1.6em;
+            }
+
+            .button-container {
+                max-width: 250px;
+            }
+        }
+
+        @media (min-width: 601px) and (max-width: 900px) {
+            .feature-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        .footer {
+            background-color: #2d2d2d;
+            padding: 30px 20px;
+            text-align: center;
+            margin-top: auto;
+            box-shadow: 0 -4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .footer p {
+            color: #bbbbbb;
+            margin: 5px 0;
+            font-size: 0.9em;
+        }
+
+        .footer a {
+            color: #1db954;
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+
+        .footer a:hover {
+            color: #1ed760;
+        }
+
+        .footer .heart {
+            color: #ff4444;
+            display: inline-block;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+
+        @media (max-width: 600px) {
+            .footer {
+                padding: 20px 15px;
+            }
+            .footer p {
+                font-size: 0.85em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="hero">
+        <h1>Welcome to Note Taking App</h1>
+        <p>A simple and elegant way to organize your thoughts, ideas, and important information.</p>
+        <div class="button-container">
+            <a href="login.html" class="button primary">Login</a>
+            <a href="register.html" class="button secondary">Register</a>
+        </div>
+    </div>
+
+    <div class="features">
+        <h2>Features</h2>
+        <div class="feature-grid">
+            <div class="feature-item">
+                <i>📝</i>
+                <h3>Easy Note Taking</h3>
+                <p>Create and edit notes with a simple and intuitive interface.</p>
+            </div>
+            <div class="feature-item">
+                <i>🔍</i>
+                <h3>Search & Sort</h3>
+                <p>Find your notes quickly with search and sorting options.</p>
+            </div>
+            <div class="feature-item">
+                <i>🔒</i>
+                <h3>Secure Storage</h3>
+                <p>Your notes are securely stored and accessible only to you.</p>
+            </div>
+            <div class="feature-item">
+                <i>📱</i>
+                <h3>Responsive Design</h3>
+                <p>Access your notes from any device with our responsive layout.</p>
+            </div>
+        </div>
+    </div>
+    <footer class="footer">
+        <p>Built with <span class="heart">❤</span> by GitHub Copilot & Seang Sengly</p>
+        <p>&copy; 2023 Note Taking App. All rights reserved.</p>
+        <p>Follow us on <a href="https://github.com/seangeng" target="_blank">GitHub</a></p>
+    </footer>
+</body>
+</html>
