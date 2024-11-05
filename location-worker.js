@@ -16,17 +16,80 @@ self.addEventListener('activate', (event) => {
     event.waitUntil(clients.claim());
 });
 
-// Background sync for location updates
+// Initialize IndexedDB
+const dbName = 'locationDB';
+const storeName = 'trackingPrefs';
+
+// Open IndexedDB
+function openDB() {
+    return new Promise((resolve, reject) => {
+        const request = indexedDB.open(dbName, 1);
+        
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => resolve(request.result);
+        
+        request.onupgradeneeded = (event) => {
+            const db = event.target.result;
+            if (!db.objectStoreNames.contains(storeName)) {
+                db.createObjectStore(storeName, { keyPath: 'email' });
+            }
+        };
+    });
+}
+
+// Handle background sync
 self.addEventListener('sync', (event) => {
-    if (event.tag === 'location-update') {
-        event.waitUntil(updateLocationInBackground());
+    if (event.tag === 'updateLocation') {
+        event.waitUntil(syncLocations());
     }
 });
 
-// Periodic background sync (if supported)
+// Handle periodic background sync
 self.addEventListener('periodicsync', (event) => {
-    if (event.tag === 'location-sync') {
-        event.waitUntil(updateLocationInBackground());
+    if (event.tag === 'location-update') {
+        event.waitUntil(syncLocations());
+    }
+});
+
+async function syncLocations() {
+    const db = await openDB();
+    const transaction = db.transaction(storeName, 'readonly');
+    const store = transaction.objectStore(storeName);
+    const users = await store.getAll();
+
+    for (const user of users) {
+        if (!user.stopTracking) {
+            try {
+                const position = await getCurrentPosition();
+                await updateUserLocation(user.email, position);
+            } catch (error) {
+                console.error('Error updating location:', error);
+            }
+        }
+    }
+}
+
+function getCurrentPosition() {
+    return new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            timeout: 5000,
+            maximumAge: 0
+        });
+    });
+}
+
+// Handle messages from main thread
+self.addEventListener('message', async (event) => {
+    if (event.data.type === 'UPDATE_TRACKING_PREF') {
+        const db = await openDB();
+        const transaction = db.transaction(storeName, 'readwrite');
+        const store = transaction.objectStore(storeName);
+        
+        await store.put({
+            email: event.data.email,
+            stopTracking: event.data.stopTracking
+        });
     }
 });
 
@@ -91,14 +154,34 @@ function getCurrentPositionWithTimeout(timeout) {
     });
 }
 
+// More frequent background sync
+const BACKGROUND_SYNC_INTERVAL = 1000; // 1 second
+
+// Add continuous background updates
+let backgroundUpdateInterval;
+
 // Listen for messages from the main thread
 self.addEventListener('message', (event) => {
     if (event.data.type === 'START_TRACKING') {
+        // Clear existing interval if any
+        if (backgroundUpdateInterval) {
+            clearInterval(backgroundUpdateInterval);
+        }
+
+        // Start continuous background updates
+        backgroundUpdateInterval = setInterval(() => {
+            updateLocationInBackground();
+        }, BACKGROUND_SYNC_INTERVAL);
+
         // Register for periodic sync if supported
         if ('periodicSync' in registration) {
             registration.periodicSync.register('location-sync', {
-                minInterval: 15 * 60 * 1000 // 15 minutes
+                minInterval: BACKGROUND_SYNC_INTERVAL
             });
+        }
+    } else if (event.data.type === 'STOP_TRACKING') {
+        if (backgroundUpdateInterval) {
+            clearInterval(backgroundUpdateInterval);
         }
     }
 });
