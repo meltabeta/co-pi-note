@@ -226,8 +226,11 @@
     <div id="toast" class="toast"></div>
 
     <script type="module">
-        import { auth } from './firebase-config.js';
+        import { auth, database } from './firebase-config.js';
         import { signInWithEmailAndPassword, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { ref, set, get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+        const SESSION_TIMEOUT = 3600000; // 1 hour in milliseconds
 
         window.login = async function() {
             const loginContainer = document.querySelector('.login-container');
@@ -238,11 +241,29 @@
             try {
                 loginContainer.classList.add('loading');
                 loginButton.disabled = true;
-                await signInWithEmailAndPassword(auth, email, password);
+
+                // Sign in user
+                const userCredential = await signInWithEmailAndPassword(auth, email, password);
+                const user = userCredential.user;
+
+                // Generate a session token
+                const sessionToken = Math.random().toString(36).substring(2);
+                sessionStorage.setItem('sessionToken', sessionToken);
+
+                // Store session token in the database
+                await set(ref(database, `users/${user.uid}/sessionToken`), sessionToken);
+
                 showToast('Login successful!', 'success');
                 setTimeout(() => {
                     window.location.href = 'note.html';
                 }, 1500);
+
+                // Set session timeout
+                setTimeout(() => {
+                    auth.signOut();
+                    showToast("Session expired. Please log in again.", "error");
+                    window.location.href = "login.html";
+                }, SESSION_TIMEOUT);
             } catch (error) {
                 showToast(error.message, 'error');
             } finally {

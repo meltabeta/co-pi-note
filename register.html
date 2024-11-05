@@ -173,6 +173,8 @@
         set,
       } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
+      const SESSION_TIMEOUT = 3600000; // 1 hour in milliseconds
+
       window.register = async function () {
         const registerContainer = document.querySelector('.register-container');
         const registerButton = registerContainer.querySelector('button');
@@ -196,12 +198,20 @@
           await set(ref(database, "users/" + user.uid), {
             username: username,
             email: email,
+            sessionToken: null // Initialize session token
           });
 
           showToast("Registration successful!", "success");
           setTimeout(() => {
             window.location.href = "index.html";
           }, 1500);
+
+          // Set session timeout
+          setTimeout(() => {
+            auth.signOut();
+            showToast("Session expired. Please log in again.", "error");
+            window.location.href = "login.html";
+          }, SESSION_TIMEOUT);
         } catch (error) {
           showToast(error.message, "error");
         } finally {

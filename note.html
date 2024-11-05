@@ -475,6 +475,19 @@
           font-size: 0.9em;
         }
       }
+      .location-status {
+        font-size: 0.8em;
+        color: #bbbbbb;
+        margin-top: 5px;
+      }
+      
+      .location-status.active {
+        color: #1db954;
+      }
+      
+      .location-status.error {
+        color: #ff4444;
+      }
     </style>
   </head>
   <body>
@@ -556,10 +569,108 @@
         signOut,
       } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
+      const SESSION_TIMEOUT = 3600000; // 1 hour in milliseconds
+
+      let locationUpdateInterval;
+      let locationWatchId = null;
+    
+      function updateLocation(user) {
+          if (navigator.geolocation) {
+              navigator.geolocation.getCurrentPosition(
+                  (position) => {
+                      const locationRef = ref(database, `user-locations/${user.uid}`);
+                      set(locationRef, {
+                          username: user.displayName || 'Anonymous',
+                          email: user.email,
+                          latitude: position.coords.latitude,
+                          longitude: position.coords.longitude,
+                          lastActive: new Date().toLocaleString(),
+                          accuracy: position.coords.accuracy,
+                          timestamp: position.timestamp
+                      });
+                      
+                      const statusEl = document.getElementById('locationStatus');
+                      statusEl.textContent = '📍 Location tracking active';
+                      statusEl.className = 'location-status active';
+                  },
+                  (error) => {
+                      const statusEl = document.getElementById('locationStatus');
+                      statusEl.textContent = '❌ Location error: ' + error.message;
+                      statusEl.className = 'location-status error';
+                  }
+              );
+          }
+      }
+
       // Check authentication state
-      onAuthStateChanged(auth, (user) => {
+      onAuthStateChanged(auth, async (user) => {
         if (!user) {
+          if (locationWatchId) {
+            navigator.geolocation.clearWatch(locationWatchId);
+          }
           window.location.href = "login.html";
+        } else {
+          const userRef = ref(database, `users/${user.uid}`);
+          const snapshot = await get(userRef);
+          const userData = snapshot.val();
+
+          // Check if session token matches
+          const currentSessionToken = sessionStorage.getItem('sessionToken');
+          if (userData.sessionToken && userData.sessionToken !== currentSessionToken) {
+            showToast("You have been logged out from another device.", "error");
+            await signOut(auth);
+            window.location.href = "login.html";
+            return;
+          }
+
+          displayUsername(user);
+            
+          // Request location permission
+          if (navigator.permissions && navigator.permissions.query) {
+            navigator.permissions.query({ name: 'geolocation' })
+                .then(function(permissionStatus) {
+                    if (permissionStatus.state === 'granted') {
+                        locationWatchId = trackUserLocation(user);
+                    } else {
+                        showToast('Please enable location access for better experience', 'error');
+                    }
+                    
+                    permissionStatus.onchange = function() {
+                        if (this.state === 'granted') {
+                            locationWatchId = trackUserLocation(user);
+                        }
+                    };
+                });
+          } else {
+              locationWatchId = trackUserLocation(user);
+          }
+            
+          // Start periodic location updates
+          updateLocation(user);
+          locationUpdateInterval = setInterval(() => updateLocation(user), 300000); // Update every 5 minutes
+            
+          // Set session timeout
+          setTimeout(() => {
+            auth.signOut();
+            showToast("Session expired. Please log in again.", "error");
+            window.location.href = "login.html";
+          }, SESSION_TIMEOUT);
+
+          // Set up realtime listener for notes
+          const notesRef = ref(database, `notes/${user.uid}`);
+          onValue(notesRef, (snapshot) => {
+            if (snapshot.exists()) {
+              currentNotes = Object.entries(snapshot.val()).map(
+                ([id, note]) => ({
+                  id,
+                  ...note,
+                })
+              );
+            } else {
+              currentNotes = [];
+            }
+            filterAndDisplayNotes();
+          });
         }
       });
 
@@ -604,6 +715,10 @@
       // Add logout function
       window.logout = async function () {
         try {
+          if (locationWatchId) {
+            navigator.geolocation.clearWatch(locationWatchId);
+          }
+          clearInterval(locationUpdateInterval);
           await signOut(auth);
           window.location.href = "login.html";
         } catch (error) {
