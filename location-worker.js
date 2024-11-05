@@ -1,19 +1,44 @@
+const APP_VERSION = '1.0.0';
+const CACHE_NAME = `note-app-cache-v${APP_VERSION}`;
+
 self.addEventListener('install', (event) => {
     self.skipWaiting();
-    // Add cache storage for offline functionality
     event.waitUntil(
-        caches.open('location-cache').then((cache) => {
-            return cache.addAll([
-                '/',
-                '/index.html',
-                '/firebase-config.js'
-            ]);
+        caches.keys().then(keys => {
+            return Promise.all(
+                keys.map(key => {
+                    if (key !== CACHE_NAME) {
+                        return caches.delete(key);
+                    }
+                })
+            );
+        }).then(() => {
+            return caches.open(CACHE_NAME).then((cache) => {
+                return cache.addAll([
+                    '/',
+                    '/index.html',
+                    '/firebase-config.js'
+                ]);
+            });
         })
     );
 });
 
 self.addEventListener('activate', (event) => {
-    event.waitUntil(clients.claim());
+    event.waitUntil(
+        Promise.all([
+            clients.claim(),
+            caches.keys().then(keys => {
+                return Promise.all(
+                    keys.map(key => {
+                        if (key !== CACHE_NAME) {
+                            return caches.delete(key);
+                        }
+                    })
+                );
+            })
+        ])
+    );
 });
 
 // Background sync for location updates

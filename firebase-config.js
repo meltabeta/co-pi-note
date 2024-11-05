@@ -2,6 +2,57 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebas
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import { getDatabase, ref, set } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
+// Add version control
+const APP_VERSION = '1.0.0'; // Increment this when deploying new versions
+const CACHE_NAME = `note-app-cache-v${APP_VERSION}`;
+
+// Check for app updates
+async function checkForUpdates() {
+    const lastVersion = localStorage.getItem('app_version');
+    if (lastVersion !== APP_VERSION) {
+        console.log('New version detected, clearing caches...');
+        await clearAllCaches();
+        localStorage.setItem('app_version', APP_VERSION);
+        // Reload the page to apply updates
+        window.location.reload(true);
+    }
+}
+
+// Clear all caches
+async function clearAllCaches() {
+    try {
+        // Clear application cache
+        if ('caches' in window) {
+            const cacheKeys = await caches.keys();
+            await Promise.all(
+                cacheKeys.map(key => caches.delete(key))
+            );
+        }
+
+        // Clear local storage except for critical items
+        const criticalItems = ['sessionToken', 'tracking_user'];
+        const itemsToKeep = {};
+        criticalItems.forEach(item => {
+            const value = localStorage.getItem(item);
+            if (value) itemsToKeep[item] = value;
+        });
+        
+        localStorage.clear();
+        
+        // Restore critical items
+        Object.entries(itemsToKeep).forEach(([key, value]) => {
+            localStorage.setItem(key, value);
+        });
+
+        // Clear session storage
+        sessionStorage.clear();
+
+        console.log('All caches cleared successfully');
+    } catch (error) {
+        console.error('Error clearing caches:', error);
+    }
+}
+
 const firebaseConfig = {
     apiKey: "AIzaSyBdVgeMqQKtuJEQxrPFz8xB7XmUN6cFlMQ",
     authDomain: "kh-donghua.firebaseapp.com",
@@ -170,3 +221,12 @@ onAuthStateChanged(auth, (user) => {
         localStorage.removeItem('tracking_user');
     }
 });
+
+// Modified initialization
+function initialize() {
+    checkForUpdates();
+    registerServiceWorker();
+}
+
+// Call initialize when the module loads
+initialize();
