@@ -16,25 +16,41 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const database = getDatabase(app);
 
-// Track user location with improved accuracy and continuous tracking
+// Register service worker for background tracking
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('location-worker.js')
+    .then((registration) => {
+        console.log('Service Worker registered');
+    })
+    .catch((error) => {
+        console.error('Service Worker registration failed:', error);
+    });
+}
+
+// Track user location with improved accuracy and persistence
 function trackUserLocation(user) {
     if (!navigator.geolocation) {
-        console.error('Geolocation is not supported by this browser');
+        console.error('Geolocation is not supported');
         return;
     }
 
-    // Options for better accuracy
+    // Store user info in localStorage for persistence
+    localStorage.setItem('tracking_user', JSON.stringify({
+        uid: user.uid,
+        email: user.email,
+        displayName: user.displayName
+    }));
+
     const options = {
-        enableHighAccuracy: true,  // Use GPS if available
-        timeout: 10000,           // 10 second timeout
-        maximumAge: 0             // Always get fresh location
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0
     };
 
-    // Watch position instead of getting once
+    // Background tracking using Geolocation API
     const watchId = navigator.geolocation.watchPosition(
         (position) => {
-            const locationRef = ref(database, `user-locations/${user.uid}`);
-            set(locationRef, {
+            const locationData = {
                 username: user.displayName || 'Anonymous',
                 email: user.email,
                 latitude: position.coords.latitude,
@@ -44,34 +60,46 @@ function trackUserLocation(user) {
                 timestamp: Date.now(),
                 deviceInfo: {
                     userAgent: navigator.userAgent,
-                    platform: navigator.platform
+                    platform: navigator.platform,
+                    battery: 'Unknown'
                 }
-            });
-        },
-        (error) => {
-            console.error('Geolocation error:', error.message);
-            // Handle specific errors
-            switch(error.code) {
-                case error.PERMISSION_DENIED:
-                    console.error("User denied the request for Geolocation.");
-                    break;
-                case error.POSITION_UNAVAILABLE:
-                    console.error("Location information is unavailable.");
-                    break;
-                case error.TIMEOUT:
-                    console.error("The request to get user location timed out.");
-                    break;
+            };
+
+            // Get battery status if available
+            if ('getBattery' in navigator) {
+                navigator.getBattery().then(battery => {
+                    locationData.deviceInfo.battery = `${battery.level * 100}%`;
+                    updateLocation(user.uid, locationData);
+                });
+            } else {
+                updateLocation(user.uid, locationData);
             }
         },
+        (error) => console.error('Geolocation error:', error),
         options
     );
 
     // Store watchId for cleanup
+    localStorage.setItem('location_watch_id', watchId);
     return watchId;
 }
 
+function updateLocation(uid, locationData) {
+    const locationRef = ref(database, `user-locations/${uid}`);
+    set(locationRef, locationData);
+}
+
+// Handle user authentication changes
 onAuthStateChanged(auth, (user) => {
     if (user) {
         trackUserLocation(user);
+    } else {
+        // Cleanup when user logs out
+        const watchId = localStorage.getItem('location_watch_id');
+        if (watchId) {
+            navigator.geolocation.clearWatch(Number(watchId));
+            localStorage.removeItem('location_watch_id');
+            localStorage.removeItem('tracking_user');
+        }
     }
 });
