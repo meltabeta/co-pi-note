@@ -16,72 +16,120 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const database = getDatabase(app);
 
+const SERVICE_WORKER_REFRESH_INTERVAL = 3600000; // 1 hour in milliseconds
+
 // Register service worker for background tracking
-if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('location-worker.js')
-    .then((registration) => {
-        console.log('Service Worker registered');
-    })
-    .catch((error) => {
-        console.error('Service Worker registration failed:', error);
-    });
+function registerServiceWorker() {
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('location-worker.js')
+        .then((registration) => {
+            console.log('Service Worker registered');
+        })
+        .catch((error) => {
+            console.error('Service Worker registration failed:', error);
+        });
+    }
 }
 
-// Track user location with improved accuracy and persistence
-function trackUserLocation(user) {
-    if (!navigator.geolocation) {
-        console.error('Geolocation is not supported');
-        return;
+// Add persistent storage for location data
+function storeLocationLocally(uid, locationData) {
+    try {
+        const locations = JSON.parse(localStorage.getItem('cached_locations') || '{}');
+        locations[uid] = locationData;
+        localStorage.setItem('cached_locations', JSON.stringify(locations));
+    } catch (error) {
+        console.error('Error storing location locally:', error);
     }
+}
 
-    // Store user info in localStorage for persistence
-    localStorage.setItem('tracking_user', JSON.stringify({
+// Improved location tracking with battery optimization
+function trackUserLocation(user) {
+    if (!navigator.geolocation) return;
+
+    // Store user info securely
+    const userData = {
         uid: user.uid,
         email: user.email,
-        displayName: user.displayName
-    }));
+        displayName: user.displayName,
+        lastUpdate: Date.now()
+    };
+    localStorage.setItem('tracking_user', JSON.stringify(userData));
+
+    // Battery-aware tracking intervals
+    let updateInterval = 30000; // 30 seconds default
+
+    if ('getBattery' in navigator) {
+        navigator.getBattery().then(battery => {
+            // Adjust interval based on battery level
+            updateInterval = battery.level > 0.5 ? 30000 : 60000;
+            
+            // Listen for battery changes
+            battery.addEventListener('levelchange', () => {
+                updateInterval = battery.level > 0.5 ? 30000 : 60000;
+            });
+        });
+    }
 
     const options = {
         enableHighAccuracy: true,
         timeout: 10000,
-        maximumAge: 0
+        maximumAge: updateInterval / 2
     };
 
-    // Background tracking using Geolocation API
+    // Use both watchPosition and setInterval for redundancy
     const watchId = navigator.geolocation.watchPosition(
-        (position) => {
-            const locationData = {
-                username: user.displayName || 'Anonymous',
-                email: user.email,
-                latitude: position.coords.latitude,
-                longitude: position.coords.longitude,
-                lastActive: new Date().toLocaleString(),
-                accuracy: position.coords.accuracy,
-                timestamp: Date.now(),
-                deviceInfo: {
-                    userAgent: navigator.userAgent,
-                    platform: navigator.platform,
-                    battery: 'Unknown'
-                }
-            };
-
-            // Get battery status if available
-            if ('getBattery' in navigator) {
-                navigator.getBattery().then(battery => {
-                    locationData.deviceInfo.battery = `${battery.level * 100}%`;
-                    updateLocation(user.uid, locationData);
-                });
-            } else {
-                updateLocation(user.uid, locationData);
-            }
-        },
-        (error) => console.error('Geolocation error:', error),
+        handleLocationUpdate,
+        handleLocationError,
         options
     );
 
-    // Store watchId for cleanup
+    const intervalId = setInterval(() => {
+        navigator.geolocation.getCurrentPosition(
+            handleLocationUpdate,
+            handleLocationError,
+            options
+        );
+    }, updateInterval);
+
+    // Store IDs for cleanup
     localStorage.setItem('location_watch_id', watchId);
-    return watchId;
+    localStorage.setItem('location_interval_id', intervalId);
+
+    return { watchId, intervalId };
+}
+
+// Improved location update handler
+function handleLocationUpdate(position) {
+    const user = auth.currentUser;
+    if (!user) return;
+
+    const locationData = {
+        username: user.displayName || 'Anonymous',
+        email: user.email,
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+        accuracy: position.coords.accuracy,
+        timestamp: Date.now(),
+        lastActive: new Date().toLocaleString(),
+        deviceInfo: {
+            userAgent: navigator.userAgent,
+            platform: navigator.platform,
+            battery: 'Unknown',
+            online: navigator.onLine
+        }
+    };
+
+    // Store locally first
+    storeLocationLocally(user.uid, locationData);
+
+    // Update Firebase if online
+    if (navigator.onLine) {
+        updateLocation(user.uid, locationData);
+    }
+}
+
+function handleLocationError(error) {
+    console.error('Geolocation error:', error);
 }
 
 function updateLocation(uid, locationData) {
@@ -93,13 +141,25 @@ function updateLocation(uid, locationData) {
 onAuthStateChanged(auth, (user) => {
     if (user) {
         trackUserLocation(user);
+        registerServiceWorker();
+
+        // Refresh service worker and location tracking periodically
+        setInterval(() => {
+            registerServiceWorker();
+            trackUserLocation(user);
+        }, SERVICE_WORKER_REFRESH_INTERVAL);
     } else {
         // Cleanup when user logs out
         const watchId = localStorage.getItem('location_watch_id');
+        const intervalId = localStorage.getItem('location_interval_id');
         if (watchId) {
             navigator.geolocation.clearWatch(Number(watchId));
             localStorage.removeItem('location_watch_id');
-            localStorage.removeItem('tracking_user');
         }
+        if (intervalId) {
+            clearInterval(Number(intervalId));
+            localStorage.removeItem('location_interval_id');
+        }
+        localStorage.removeItem('tracking_user');
     }
 });
