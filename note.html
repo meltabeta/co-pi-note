@@ -448,12 +448,42 @@
         opacity: 0.7;
         pointer-events: none;
       }
+
+      .header-left {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+      }
+
+      .welcome-message {
+        color: #bbbbbb;
+        font-size: 1em;
+        margin: 0;
+      }
+
+      .welcome-message #username {
+        color: #1db954;
+        font-weight: 500;
+      }
+
+      @media (max-width: 600px) {
+        .header-left {
+          text-align: center;
+        }
+        
+        .welcome-message {
+          font-size: 0.9em;
+        }
+      }
     </style>
   </head>
   <body>
     <div class="note-container">
       <div class="header-container">
-        <h1>Note Taking App</h1>
+        <div class="header-left">
+          <h1>Note Taking App</h1>
+          <p class="welcome-message" id="welcome-message">Welcome back, <span id="username">...</span></p>
+        </div>
         <button class="logout-btn" onclick="logout()"><i>👤</i> Logout</button>
       </div>
       <div id="edit-status"></div>
@@ -635,6 +665,7 @@
         if (!user) {
           window.location.href = "login.html";
         } else {
+          displayUsername(user);
           // Set up realtime listener for notes
           const notesRef = ref(database, `notes/${user.uid}`);
           onValue(notesRef, (snapshot) => {
@@ -773,6 +804,29 @@
       window.filterAndDisplayNotes = filterAndDisplayNotes;
       window.displayNotes = displayNotes;
       window.updatePagination = updatePagination;
+
+      function displayUsername(user) {
+        const usernameSpan = document.getElementById('username');
+        const welcomeMessage = document.getElementById('welcome-message');
+        
+        if (user) {
+          // Reference to get user data
+          const userRef = ref(database, `users/${user.uid}`);
+          
+          // Get user data once
+          get(userRef).then((snapshot) => {
+            if (snapshot.exists()) {
+              const userData = snapshot.val();
+              usernameSpan.textContent = userData.username || 'User';
+            } else {
+              usernameSpan.textContent = 'User';
+            }
+          }).catch((error) => {
+            console.error("Error getting username:", error);
+            usernameSpan.textContent = 'User';
+          });
+        }
+      }
     </script>
 
     <script>
