@@ -219,41 +219,84 @@
         left: 0;
         width: 100%;
         height: 100%;
-        background-color: rgba(0, 0, 0, 0.5);
+        background-color: rgba(0, 0, 0, 0.7);
         z-index: 1000;
+        backdrop-filter: blur(4px);
       }
       .modal-content {
         background-color: #2d2d2d;
-        padding: 20px;
-        border-radius: 8px;
+        padding: 30px;
+        border-radius: 12px;
         position: fixed;
         top: 50%;
         left: 50%;
         transform: translate(-50%, -50%);
-        width: 80%;
-        max-width: 300px;
+        width: 90%;
+        max-width: 400px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        animation: modalFadeIn 0.3s ease;
+      }
+      .modal-content h3 {
+        margin: 0 0 15px 0;
+        color: #ffffff;
+        font-size: 1.5em;
+      }
+      .modal-content p {
+        margin: 0 0 25px 0;
+        color: #bbbbbb;
+        font-size: 1.1em;
+        line-height: 1.4;
       }
       .modal-buttons {
         display: flex;
-        justify-content: space-between;
-        margin-top: 20px;
-        gap: 10px;
+        justify-content: flex-end;
+        gap: 15px;
       }
       .modal-buttons button {
-        flex: 1;
-        padding: 10px;
+        padding: 12px 24px;
         border: none;
-        border-radius: 4px;
+        border-radius: 8px;
         cursor: pointer;
-        font-size: 14px;
+        font-size: 1em;
+        font-weight: 500;
+        transition: all 0.2s ease;
       }
       .confirm-btn {
         background-color: #ff4444;
         color: white;
       }
+      .confirm-btn:hover {
+        background-color: #ff6666;
+        transform: translateY(-2px);
+      }
       .cancel-btn {
         background-color: #444;
         color: white;
+      }
+      .cancel-btn:hover {
+        background-color: #555;
+        transform: translateY(-2px);
+      }
+      @keyframes modalFadeIn {
+        from {
+          opacity: 0;
+          transform: translate(-50%, -48%);
+        }
+        to {
+          opacity: 1;
+          transform: translate(-50%, -50%);
+        }
+      }
+      @media (max-width: 600px) {
+        .modal-content {
+          padding: 20px;
+          width: 85%;
+        }
+        
+        .modal-buttons button {
+          padding: 10px 20px;
+          font-size: 0.9em;
+        }
       }
       .toast {
         position: fixed;
@@ -488,6 +531,33 @@
       .location-status.error {
         color: #ff4444;
       }
+      .modal-content.edit {
+        border-left: 4px solid #ff8c00;
+      }
+
+      .modal-content.logout {
+        border-left: 4px solid #1db954;
+      }
+
+      .modal-content.delete {
+        border-left: 4px solid #ff4444;
+      }
+
+      .confirm-btn.edit {
+        background-color: #ff8c00;
+      }
+
+      .confirm-btn.edit:hover {
+        background-color: #ffa500;
+      }
+
+      .confirm-btn.logout {
+        background-color: #1db954;
+      }
+
+      .confirm-btn.logout:hover {
+        background-color: #1ed760;
+      }
     </style>
   </head>
   <body>
@@ -541,14 +611,34 @@
     </div>
 
     <div id="deleteModal" class="modal">
-      <div class="modal-content">
+      <div class="modal-content delete">
         <h3>Delete Note</h3>
-        <p>Are you sure you want to delete this note?</p>
+        <p>Are you sure you want to delete this note? This action cannot be undone.</p>
         <div class="modal-buttons">
-          <button class="cancel-btn" onclick="closeDeleteModal()">
-            Cancel
-          </button>
-          <button class="confirm-btn" id="confirmDelete">Delete</button>
+          <button class="cancel-btn" onclick="closeDeleteModal()">Cancel</button>
+          <button class="confirm-btn" id="confirmDelete">Delete Note</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="editModal" class="modal">
+      <div class="modal-content edit">
+        <h3>Edit Note</h3>
+        <p>Are you sure you want to edit this note? Your current work will be replaced.</p>
+        <div class="modal-buttons">
+          <button class="cancel-btn" onclick="closeEditModal()">Cancel</button>
+          <button class="confirm-btn" id="confirmEdit">Edit Note</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="logoutModal" class="modal">
+      <div class="modal-content logout">
+        <h3>Logout Confirmation</h3>
+        <p>Are you sure you want to logout? Any unsaved changes will be lost.</p>
+        <div class="modal-buttons">
+          <button class="cancel-btn" onclick="closeLogoutModal()">Cancel</button>
+          <button class="confirm-btn" id="confirmLogout">Logout</button>
         </div>
       </div>
     </div>
@@ -713,17 +803,35 @@
       };
 
       // Add logout function
-      window.logout = async function () {
-        try {
-          if (locationWatchId) {
-            navigator.geolocation.clearWatch(locationWatchId);
+      window.logout = function() {
+        const modal = document.getElementById('logoutModal');
+        const confirmBtn = document.getElementById('confirmLogout');
+        const cancelBtn = document.querySelector('#logoutModal .cancel-btn');
+        
+        modal.style.display = 'block';
+        
+        // Remove any existing click event listeners
+        const newConfirmBtn = confirmBtn.cloneNode(true);
+        confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+        
+        // Handle cancel button click
+        cancelBtn.onclick = () => {
+          closeLogoutModal();
+        };
+        
+        newConfirmBtn.addEventListener('click', async () => {
+          try {
+            if (locationWatchId) {
+              navigator.geolocation.clearWatch(locationWatchId);
+            }
+            clearInterval(locationUpdateInterval);
+            await signOut(auth);
+            window.location.href = "login.html";
+          } catch (error) {
+            showToast(error.message, "error");
           }
-          clearInterval(locationUpdateInterval);
-          await signOut(auth);
-          window.location.href = "login.html";
-        } catch (error) {
-          showToast(error.message, "error");
-        }
+          closeLogoutModal();
+        });
       };
 
       // Modify filterAndDisplayNotes
@@ -754,12 +862,22 @@
 
       // Modify deleteNote function
       window.deleteNote = async function (noteId) {
-        const noteItem = document.querySelector(`[data-note-id="${noteId}"]`);
-        const user = auth.currentUser;
+        const modal = document.getElementById('deleteModal');
+        const confirmBtn = document.getElementById('confirmDelete');
         
-        if (confirm("Are you sure you want to delete this note?")) {
+        modal.style.display = 'block';
+        
+        // Remove any existing click event listeners
+        const newConfirmBtn = confirmBtn.cloneNode(true);
+        confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+        
+        newConfirmBtn.addEventListener('click', async () => {
+          const noteItem = document.querySelector(`[data-note-id="${noteId}"]`);
+          const user = auth.currentUser;
+          
           try {
             noteItem?.classList.add('loading');
+            modal.style.display = 'none';
             await remove(ref(database, `notes/${user.uid}/${noteId}`));
             showToast("Note deleted successfully!");
             currentPage = 1;
@@ -769,7 +887,7 @@
           } finally {
             noteItem?.classList.remove('loading');
           }
-        }
+        });
       };
 
       // Add realtime listener for notes
@@ -868,25 +986,43 @@
       }
 
       // Update editNote function to work with Firebase
-      window.editNote = async function (noteId) {
-        const user = auth.currentUser;
-        const noteRef = ref(database, `notes/${user.uid}/${noteId}`);
-        const snapshot = await get(noteRef);
-
-        if (snapshot.exists()) {
-          const note = snapshot.val();
-          document.querySelector(".note-container").classList.add("edit-mode");
-          document.getElementById("edit-status").innerHTML =
-            '<p style="color: #1db954; margin-bottom: 10px;">Editing Note</p>';
-          document.getElementById("note-title").value = note.title;
-          document.getElementById("note-content").value = note.content;
-          document.getElementById("save-btn").textContent = "Update Note";
-          document.getElementById("save-btn").onclick = () =>
-            updateNote(noteId);
-          document.getElementById("cancel-edit-btn").style.display = "block";
-
-          window.scrollTo({ top: 0, behavior: "smooth" });
-        }
+      window.editNote = async function(noteId) {
+        const modal = document.getElementById('editModal');
+        const confirmBtn = document.getElementById('confirmEdit');
+        const cancelBtn = document.querySelector('#editModal .cancel-btn');
+        
+        modal.style.display = 'block';
+        
+        // Remove any existing click event listeners
+        const newConfirmBtn = confirmBtn.cloneNode(true);
+        confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+        
+        // Handle cancel button click
+        cancelBtn.onclick = () => {
+          closeEditModal();
+        };
+        
+        newConfirmBtn.addEventListener('click', async () => {
+          const user = auth.currentUser;
+          const noteRef = ref(database, `notes/${user.uid}/${noteId}`);
+          const snapshot = await get(noteRef);
+  
+          if (snapshot.exists()) {
+            const note = snapshot.val();
+            document.querySelector(".note-container").classList.add("edit-mode");
+            document.getElementById("edit-status").innerHTML =
+              '<p style="color: #1db954; margin-bottom: 10px;">Editing Note</p>';
+            document.getElementById("note-title").value = note.title;
+            document.getElementById("note-content").value = note.content;
+            document.getElementById("save-btn").textContent = "Update Note";
+            document.getElementById("save-btn").onclick = () => updateNote(noteId);
+            document.getElementById("cancel-edit-btn").style.display = "block";
+  
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }
+          
+          closeEditModal();
+        });
       };
 
       // Add updateNote function for Firebase
@@ -942,6 +1078,57 @@
           });
         }
       }
+
+      // Add modal close functions
+      window.closeEditModal = function() {
+        const modal = document.getElementById('editModal');
+        modal.style.display = 'none';
+      };
+
+      window.closeLogoutModal = function() {
+        const modal = document.getElementById('logoutModal');
+        modal.style.display = 'none';
+      };
+
+      window.closeDeleteModal = function() {
+        const modal = document.getElementById('deleteModal');
+        modal.style.display = 'none';
+      };
+
+      window.cancelEdit = function() {
+        // Reset form and UI
+        document.querySelector(".note-container").classList.remove("edit-mode");
+        document.getElementById("edit-status").innerHTML = "";
+        document.getElementById("note-title").value = "";
+        document.getElementById("note-content").value = "";
+        document.getElementById("save-btn").textContent = "Save Note";
+        document.getElementById("save-btn").onclick = () => saveNote();
+        document.getElementById("cancel-edit-btn").style.display = "none";
+      };
+
+      // Update the window click handler to close all modals
+      window.onclick = function(event) {
+        const deleteModal = document.getElementById('deleteModal');
+        const editModal = document.getElementById('editModal');
+        const logoutModal = document.getElementById('logoutModal');
+        
+        if (event.target === deleteModal) {
+          closeDeleteModal();
+        } else if (event.target === editModal) {
+          closeEditModal();
+        } else if (event.target === logoutModal) {
+          closeLogoutModal();
+        }
+      };
+
+      // Add ESC key handler to close modals
+      document.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape') {
+          closeDeleteModal();
+          closeEditModal();
+          closeLogoutModal();
+        }
+      });
     </script>
 
     <script>
