@@ -24,16 +24,6 @@ function registerServiceWorker() {
         navigator.serviceWorker.register('location-worker.js')
         .then((registration) => {
             console.log('Service Worker registered');
-            // Register for background sync
-            if ('sync' in registration) {
-                registration.sync.register('location-update');
-            }
-            // Register for periodic sync if supported
-            if ('periodicSync' in registration) {
-                registration.periodicSync.register('location-sync', {
-                    minInterval: 24 * 60 * 60 * 1000 // 1 day
-                });
-            }
         })
         .catch((error) => {
             console.error('Service Worker registration failed:', error);

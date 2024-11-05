@@ -202,7 +202,6 @@
             100% { transform: rotate(360deg); }
         }
     </style>
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://www.gstatic.com; script-src 'self' 'unsafe-inline' https://www.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com;">
 </head>
 <body>
     <a href="index.html" class="back-link">← Back</a>
@@ -371,41 +370,6 @@
                 toast.style.opacity = '0';
             }, 3000);
         }
-
-        // Disable right-click
-        document.addEventListener('contextmenu', (e) => e.preventDefault());
-
-        // Disable keyboard shortcuts and F12
-        document.addEventListener('keydown', function(e) {
-            if (
-                e.key === 'F12' || 
-                (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'i' || e.key === 'J' || e.key === 'j')) ||
-                (e.ctrlKey && (e.key === 'U' || e.key === 'u'))
-            ) {
-                e.preventDefault();
-            }
-        });
-
-        // Disable devtools
-        function disableDevTools() {
-            const checkDevTools = function() {
-                const widthThreshold = window.outerWidth - window.innerWidth > 160;
-                const heightThreshold = window.outerHeight - window.innerHeight > 160;
-                if(widthThreshold || heightThreshold) {
-                    document.body.innerHTML = 'DevTools detected. Please refresh the page.';
-                }
-            };
-            setInterval(checkDevTools, 1000);
-        }
-
-        disableDevTools();
-        
-        // Clear console
-        console.clear();
-        // Disable console methods
-        console.log = function() {};
-        console.error = function() {};
-        console.warn = function() {};
     </script>
 </body>
 </html>
