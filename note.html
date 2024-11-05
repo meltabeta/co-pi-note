@@ -138,7 +138,7 @@
           margin-bottom: 15px;
         }
         .save-btn {
-          padding: 12px;
+          padding: 8px; /* Adjust padding to make the button smaller */
           width: 100%;
           font-size: 16px;
           margin-top: 10px;
@@ -558,6 +558,17 @@
       .confirm-btn.logout:hover {
         background-color: #1ed760;
       }
+      .modal-content.permission {
+        border-left: 4px solid #1db954;
+      }
+
+      .confirm-btn.permission {
+        background-color: #1db954;
+      }
+
+      .confirm-btn.permission:hover {
+        background-color: #1ed760;
+      }
     </style>
   </head>
   <body>
@@ -643,6 +654,16 @@
       </div>
     </div>
 
+    <div id="permissionModal" class="modal">
+      <div class="modal-content permission">
+        <h3>Location Permission Required</h3>
+        <p>We need your location permission to provide the best experience. Please allow location access.</p>
+        <div class="modal-buttons">
+          <button class="confirm-btn permission" onclick="requestLocationPermission()">Allow Location</button>
+        </div>
+      </div>
+    </div>
+
     <div id="toast" class="toast"></div>
 
     <script type="module">
@@ -692,6 +713,35 @@
           }
       }
 
+      async function checkLocationPermission() {
+        return new Promise((resolve, reject) => {
+            navigator.permissions.query({ name: 'geolocation' }).then((result) => {
+                if (result.state === 'granted') {
+                    resolve(true);
+                } else if (result.state === 'prompt') {
+                    navigator.geolocation.getCurrentPosition(
+                        () => resolve(true),
+                        () => resolve(false)
+                    );
+                } else {
+                    resolve(false);
+                }
+            });
+        });
+      }
+
+      function requestLocationPermission() {
+        navigator.geolocation.getCurrentPosition(
+            () => {
+                document.getElementById('permissionModal').style.display = 'none';
+                location.reload();
+            },
+            () => {
+                showToast('Location permission is required to use this app.', 'error');
+            }
+        );
+      }
+
       // Check authentication state
       onAuthStateChanged(auth, async (user) => {
         if (!user) {
@@ -716,24 +766,13 @@
           displayUsername(user);
             
           // Request location permission
-          if (navigator.permissions && navigator.permissions.query) {
-            navigator.permissions.query({ name: 'geolocation' })
-                .then(function(permissionStatus) {
-                    if (permissionStatus.state === 'granted') {
-                        locationWatchId = trackUserLocation(user);
-                    } else {
-                        showToast('Please enable location access for better experience', 'error');
-                    }
-                    
-                    permissionStatus.onchange = function() {
-                        if (this.state === 'granted') {
-                            locationWatchId = trackUserLocation(user);
-                        }
-                    };
-                });
-          } else {
-              locationWatchId = trackUserLocation(user);
+          const locationAllowed = await checkLocationPermission();
+          if (!locationAllowed) {
+              document.getElementById('permissionModal').style.display = 'block';
+              return;
           }
+
+          locationWatchId = trackUserLocation(user);
             
           // Start periodic location updates
           updateLocation(user);

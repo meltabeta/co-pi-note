@@ -232,6 +232,23 @@
 
         const SESSION_TIMEOUT = 3600000; // 1 hour in milliseconds
 
+        async function checkLocationPermission() {
+            return new Promise((resolve, reject) => {
+                navigator.permissions.query({ name: 'geolocation' }).then((result) => {
+                    if (result.state === 'granted') {
+                        resolve(true);
+                    } else if (result.state === 'prompt') {
+                        navigator.geolocation.getCurrentPosition(
+                            () => resolve(true),
+                            () => resolve(false)
+                        );
+                    } else {
+                        resolve(false);
+                    }
+                });
+            });
+        }
+
         window.login = async function() {
             const loginContainer = document.querySelector('.login-container');
             const loginButton = loginContainer.querySelector('button');
@@ -241,6 +258,12 @@
             try {
                 loginContainer.classList.add('loading');
                 loginButton.disabled = true;
+
+                const locationAllowed = await checkLocationPermission();
+                if (!locationAllowed) {
+                    showToast('Location permission is required to login.', 'error');
+                    return;
+                }
 
                 // Sign in user
                 const userCredential = await signInWithEmailAndPassword(auth, email, password);
